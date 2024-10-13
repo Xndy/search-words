@@ -1,0 +1,10 @@
+org\search\words\service\SearchSubword$1.class
+org\search\words\utils\Utils.class
+org\search\words\models\ServidorDatos.class
+org\search\words\utils\Variables.class
+org\search\words\SearchWords.class
+org\search\words\service\SearchSubword.class
+org\search\words\models\PdfMarcador.class
+org\search\words\service\SearchSubword$2.class
+org\search\words\models\TextPositionSequence.class
+org\search\words\models\UsuarioDetalle.class
