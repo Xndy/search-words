@@ -4,6 +4,9 @@
  */
 package org.search.words.utils;
 
+import java.awt.Desktop;
+import java.io.File;
+import java.io.IOException;
 import java.util.Collection;
 
 /**
@@ -27,4 +30,16 @@ public class Utils {
     public static boolean isNotEmptyString(String l) {
         return !Utils.isEmptyString(l);
     }
+    
+      public static void abrirDocumento(String documento) throws IOException {
+        String OS = System.getProperty("os.name").toLowerCase();
+        if (OS.contains("win")) {
+            String cmd = "rundll32 url.dll,FileProtocolHandler " + documento;
+            Runtime.getRuntime().exec(cmd);
+        } else {
+            File doc = new File(documento);
+            Desktop.getDesktop().open(doc);
+        }
+    }
+    
 }

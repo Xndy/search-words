@@ -10,6 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
 import org.apache.pdfbox.util.Matrix;
@@ -22,7 +26,7 @@ import org.search.words.utils.Utils;
  */
 public class SearchSubword {
 
-    public List<PdfMarcador> printSubwordsString(String filePath, String searchTerm) throws IOException {
+    public List<PdfMarcador> printSubwordsString(String filePath, String searchTerm, Boolean split) throws IOException {
         PDDocument document = PDDocument.load(new File(filePath));
         List<PdfMarcador> marcadoresTemp = new ArrayList<>();
         System.out.printf("* Looking for '%s'\n", searchTerm);
@@ -31,17 +35,26 @@ public class SearchSubword {
             System.out.println("size hits: " + hits.size());
             if (Utils.isNotEmpty(hits)) {
                 for (TextPositionSequence hit : hits) {
-                    if (hit.getWord().startsWith(searchTerm)) {
-                        String[] words = hit.getWord().split(" ");
-                        for (int i = 0; i < words.length; i++) {
-                            String w = words[i];
-                            if (w.trim().length() > 2) {
-                                PdfMarcador pdf = new PdfMarcador();
-                                pdf.setNumeroPagina(page);
-                                pdf.setTexto(w);
-                                if (!marcadoresTemp.contains(pdf)) {
-                                    marcadoresTemp.add(pdf);
+                    if (hit.getWord().trim().startsWith(searchTerm)) {
+                        if (split) {
+                            String[] words = hit.getWord().split(" ");
+                            for (int i = 0; i < words.length; i++) {
+                                String w = words[i];
+                                if (w.trim().length() > 2) {
+                                    PdfMarcador pdf = new PdfMarcador();
+                                    pdf.setNumeroPagina(page);
+                                    pdf.setTexto(w);
+                                    if (!marcadoresTemp.contains(pdf)) {
+                                        marcadoresTemp.add(pdf);
+                                    }
                                 }
+                            }
+                        } else {
+                            PdfMarcador pdf = new PdfMarcador();
+                            pdf.setNumeroPagina(page);
+                            pdf.setTexto(hit.getWord());
+                            if (!marcadoresTemp.contains(pdf)) {
+                                marcadoresTemp.add(pdf);
                             }
                         }
 
@@ -50,15 +63,24 @@ public class SearchSubword {
             }
         }
 
+        return buscarPosiciones(document, searchTerm, marcadoresTemp);
+
+    }
+
+    public List<PdfMarcador> printSubwordsString(String filePath, List<PdfMarcador> temps) {
+
+        try {
+            PDDocument document = PDDocument.load(new File(filePath));
+            return buscarPosiciones(document, "", temps);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return new ArrayList<>();
+    }
+
+    public List<PdfMarcador> buscarPosiciones(PDDocument document, String searchTerm, List<PdfMarcador> temps) throws IOException {
         List<PdfMarcador> marcadores = new ArrayList<>();
-        for (PdfMarcador m : marcadoresTemp) {
-            /* Integer[] posiciones = printSubwordsByPage(document, m.getTexto(), m.getNumeroPagina(), m.getVecesRepetidas());
-            if (posiciones != null) {
-                m.setMovimientoX(posiciones[0]);
-                m.setMovimientoY(posiciones[1]);
-                m.setTexto(m.getTexto().replace(searchTerm, ""));
-                marcadores.add(m);
-            }*/
+        for (PdfMarcador m : temps) {
             List<Integer[]> posiciones = printSubwordsImprovedBypage(document, m.getTexto(), m.getNumeroPagina());
 
             System.out.println("\nusuario : " + m.getTexto() + " posiciones: " + posiciones.size());
@@ -69,14 +91,13 @@ public class SearchSubword {
                 pdf.setNumeroPagina(m.getNumeroPagina());
                 pdf.setTexto(m.getTexto().replace(searchTerm, ""));
                 pdf.setMovimientoX((int) tp[0]);
-                pdf.setMovimientoY((int) tp[1]);
+                pdf.setMovimientoY((int) tp[1] + 40); //Se suma 40 para que no quede justo en la posicion
                 pdf.setVecesRepetidas(i + 1);
 
                 marcadores.add(pdf);
 
             }
         }
-
         return marcadores;
     }
 
@@ -272,5 +293,182 @@ public class SearchSubword {
 
         return hits;
     }
+
+    public static void createPDF(int x, int y, String pdfPath) throws IOException {
+
+        /// CREAR DOCUMENTO
+        PDDocument document = new PDDocument();
+        /// CREAR PAGINA
+        PDPage page = new PDPage();
+        /// AGREGAR LA PAGINA AL DOCUMENTO
+        document.addPage(page);
+        /// CREAR UN STREAM PARA AGREGAR TEXTO
+        PDPageContentStream stream = new PDPageContentStream(document, page);
+        /// CREAR UN OBJETO CON LA FUENTE QUE VAMOS A USAR PARA EL TEXTO
+        PDFont font = PDType1Font.HELVETICA;
+        /// INICIAMOS EL STREAM DE TEXTO
+        stream.beginText();
+        /// DEFINIMOS LA FUENTE Y EL TAMA~O PARA EL TITULO
+        stream.setFont(font, 24);
+        /// DEFINIMOS LAS COORDENADAS PARA INICIAR EL TEXTO
+        stream.newLineAtOffset(10, 760);
+        /// MOSTRAMOS EL TEXTO/ TITULO
+        stream.showText("Crear PDF con PDFBox en Java");
+        /// DEFINIMOS EL LA FUENTE Y TAMA~O PARA LOS PARRAFOS
+        stream.setFont(font, 12);
+        /// DEFINIMOS LAS COORDENADAS EN REFERENCIA A LA DEFINICION DE COORDENADAS ANTERIOR
+        stream.newLineAtOffset(x, y);
+        /// MOSTRAMOS EL TEXTO DE UN PARRAFO
+        stream.showText("Hola Mundo !!!");
+        /// DEFINIMOS LAS COORDENADAS EN REFERENCIA A LA DEFINICION DE COORDENADAS ANTERIOR
+        stream.newLineAtOffset(0, -10);
+        /// MOSTRAMOS EL TEXTO DE OTRO PARRAFO
+        stream.showText("Linea 3!");
+        /// FINALIZAMOS EL STREAM DE TEXTO
+        stream.endText();
+        /// CERRAMOS EL STREAM
+        stream.close();
+        /// GUARDAMOS EL DOCUMENTO
+        document.save(pdfPath);
+        /// CERRAMOS EL DOCUMENTO
+        document.close();
+
+    }
+
+    public static void updatePDF(int x, int y, String pdfPath) throws IOException {
+        System.out.println("x " + x);
+        System.out.println("y " + y);
+        // Cargar el documento PDF existente
+        PDDocument document = PDDocument.load(new File(pdfPath));
+
+        // Obtener la primera página (puedes cambiar esto para obtener cualquier página específica)
+        PDPage page = document.getPage(0); // Obtener la primera página (índice 0)
+
+        // Crear un flujo de contenido para agregar texto o gráficos
+        PDPageContentStream contentStream = new PDPageContentStream(document, page,
+                PDPageContentStream.AppendMode.APPEND, true);
+
+        // Comienza el contexto de texto
+        contentStream.beginText();
+
+        // Asegurarnos de que no haya rotaciones o transformaciones aplicadas
+        Matrix matrix = new Matrix(1, 0, 0, 1, x, y);  // Sin rotación, solo desplazamiento
+        contentStream.setTextMatrix(matrix);
+        // contentStream.setTextMatrix(1, 0, 0, 1, x, y);  // Establece la matriz de texto "normal" (sin rotaciones ni volteos)
+//contentStream.setTextMatrix(1, 0, 0, 1, 0, 0); 
+        // Establecer la fuente y tamaño
+        contentStream.setFont(PDType1Font.HELVETICA_BOLD, 12);  // Usar una fuente estándar
+
+        // Agregar el texto
+        contentStream.showText("Texto agregado al PDF en: (" + x + ", " + y + ")");
+
+        // Finalizar el bloque de texto
+        contentStream.endText();
+
+        // Dibujar un "punto" en las coordenadas (x, y)
+        contentStream.setLineWidth(1f);  // Grosor de la línea
+        contentStream.moveTo(x, y);  // Mover a las coordenadas donde dibujaremos el punto
+        contentStream.lineTo(x + 1, y);  // Dibujar una pequeña línea de 1 unidad para simular un punto
+        contentStream.stroke();  // Traza el punto (realmente traza una línea muy pequeña)
+
+        // Cerrar el flujo de contenido
+        contentStream.close();
+
+        // Sobrescribir el archivo original con el PDF modificado
+        document.save(pdfPath);
+
+        // Cerrar el documento
+        document.close();
+
+        System.out.println("Documento PDF modificado y guardado en: " + pdfPath);
+    }
+
+    public static String extractPageToNewPDF(String inputPdfPath, int pageNumber) throws IOException {
+        // Cargar el documento PDF original
+        PDDocument document = PDDocument.load(new File(inputPdfPath));
+
+        // Verificar que el número de página esté dentro del rango válido
+        if (pageNumber < 1 || pageNumber > document.getNumberOfPages()) {
+            throw new IllegalArgumentException("Número de página inválido. El PDF tiene " + document.getNumberOfPages() + " páginas.");
+        }
+
+        // Crear un nuevo documento PDF
+        PDDocument newDocument = new PDDocument();
+
+        // Extraer la página especificada (recordar que PDFBox usa índices 0-based)
+        PDPage page = document.getPage(pageNumber - 1);
+
+        // Añadir la página al nuevo documento
+        newDocument.addPage(page);
+
+        // Generar un nombre de archivo con la fecha y hora actual en milisegundos
+        String fileName = "extracted_page_" + System.currentTimeMillis() + ".pdf";
+
+        // Obtener la ruta del directorio del archivo de entrada
+        File inputFile = new File(inputPdfPath);
+        String outputPdfPath = inputFile.getParent() + File.separator + fileName;
+
+        // Guardar el nuevo documento PDF en la misma carpeta que el archivo de entrada
+        newDocument.save(outputPdfPath);
+
+        // Cerrar los documentos para liberar recursos
+        document.close();
+        newDocument.close();
+
+        System.out.println("Página " + pageNumber + " ha sido extraída a un nuevo archivo PDF: " + outputPdfPath);
+        System.out.println("Página " + pageNumber + " ha sido extraída a un de archivo PDF: " + inputPdfPath);
+        return outputPdfPath;
+    }
+
+    public static void escribirSobrePDF(String archivoEntrada, String texto, float x, float y) {
+        try {
+            // Cargar el PDF existente
+            PDDocument document = PDDocument.load(new java.io.File(archivoEntrada));
+
+            // Obtener la primera página del documento
+            PDPage pagina = document.getPage(0);
+
+            // Corregir rotación si es necesario
+            int rotation = pagina.getRotation();
+            if (rotation != 0) {
+                pagina.setRotation(0); // Restablecer la rotación a 0 grados
+            }
+
+            // Obtener la altura de la página
+            float paginaAltura = pagina.getMediaBox().getHeight();
+
+            // Crear un PDPageContentStream para escribir sobre la página
+            PDPageContentStream contentStream = new PDPageContentStream(document, pagina, 
+                    PDPageContentStream.AppendMode.APPEND, true);
+
+            // Establecer el color rojo para el texto
+            contentStream.setNonStrokingColor(1.0f, 0.0f, 0.0f); // Color rojo (RGB: 1, 0, 0)
+
+            // Seleccionar la fuente y tamaño del texto
+            contentStream.setFont(PDType1Font.HELVETICA_BOLD, 12); // Fuente Helvetica, tamaño 12
+
+            // Asegurarse de que no haya rotación aplicada a la página ni a la transformación del texto
+            contentStream.beginText();
+
+            // Ajustar la coordenada y considerando el sistema de coordenadas de PDFBox
+            contentStream.newLineAtOffset(x, paginaAltura - y); // Reemplazamos y con (paginaAltura - y)
+
+            // Escribir el texto
+            contentStream.showText(texto);
+            contentStream.endText();
+
+            // Cerrar el contentStream
+            contentStream.close();
+
+            // Guardar los cambios directamente en el mismo archivo
+            document.save(archivoEntrada); // Sobrescribe el archivo original
+
+            // Cerrar el documento
+            document.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 
 }
